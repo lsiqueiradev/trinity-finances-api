@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('accounts', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignUuid('institution_id')->constrained('institutions')->onDelete('set null');
+            $table->foreignUuid('institution_id')->nullable()->constrained('institutions')->onDelete('set null');
             $table->string('description');
             $table->string('color')->default('#4B5563');
             $table->decimal('initial_balance', 15, 2)->default(0);
