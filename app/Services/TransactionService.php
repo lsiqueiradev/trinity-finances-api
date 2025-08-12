@@ -80,7 +80,7 @@ class TransactionService
 
     private function createRecurring(Request $request)
     {
-        // $recurrence = app(RecurrenceService::class)->create($request);
+        $recurrence = app(RecurrenceService::class)->create($request);
 
         $dates = $this->createDates(
             Carbon::parse($request->date),
@@ -173,7 +173,11 @@ class TransactionService
         $query = Transaction::where([
             'user_id' => $request->user()->id,
         ])
-            ->with(['category', 'account', 'account.institution'])
+            ->with([
+                'category',
+                'account',
+                'account.institution',
+            ])
             ->whereYear('date', $year)
             ->whereMonth('date', $month)
             ->get();
@@ -192,9 +196,6 @@ class TransactionService
         // Prepara a lista para armazenar os saldos finais por data
         $runningBalance = $accumulatedBalance;
         $balancesByDate = [];
-
-        // Inicializa o resultado como uma coleção
-        $result = collect();
 
         // Itera sobre as transações agrupadas por data
         foreach ($transactionsGrouped as $date => $dailyTransactions) {
@@ -220,13 +221,6 @@ class TransactionService
                 'description' => __('Estimated end of day balance'),
                 'created_at'  => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
             ]);
-
-            $dailyTransactions->prepend((object) [
-                'id'         => Str::uuid(),
-                'date'       => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
-                'created_at' => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
-            ]);
-
         }
 
         $dates        = collect(array_keys($balancesByDate));
@@ -252,12 +246,6 @@ class TransactionService
 
             $finalResult->push(...$sortedDailyTransactions);
 
-            // Adiciona saldo do final do dia, considerando o saldo do mês anterior
-            // $finalResult->push((object) [
-            //     'id'          => Str::uuid(),
-            //     'amount'      => round($balancesByDate[$date], 2),
-            //     'description' => __('Estimated end of day balance'),
-            // ]);
         }
 
         return $finalResult;
