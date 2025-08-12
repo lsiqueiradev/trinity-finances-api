@@ -88,6 +88,8 @@ class BalanceController extends Controller
         }
         $monthlyBalancesTransactions = $this->balanceService->calculateBalanceMonthly($year, $month);
 
+        usleep(2000000);
+
         return response()->json([
             'balance'        => $balance,
             'monthly_status' => $monthStatus,

@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Services\BalanceService;
 use App\Services\TransactionService;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TransactionController extends Controller
@@ -28,12 +29,14 @@ class TransactionController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $month = (int) $request->input('month', Carbon::now()->month);
         $year  = (int) $request->input('year', Carbon::now()->year);
 
         $transactions = $this->transactionService->getAll($request, $year, $month);
+
+        usleep(2000000);
 
         return response()->json($transactions);
 
@@ -46,7 +49,7 @@ class TransactionController extends Controller
      * @return \Illuminate\Http\Response
      */
 
-    public function store(TransactionCreateUpdateRequest $request)
+    public function store(TransactionCreateUpdateRequest $request): JsonResponse
     {
         $this->transactionService->create($request);
 
