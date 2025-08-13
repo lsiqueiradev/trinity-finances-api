@@ -36,7 +36,9 @@ class TransactionController extends Controller
 
         $transactions = $this->transactionService->getAll($request, $year, $month);
 
-        usleep(2000000);
+        if (app()->environment('local')) {
+            usleep(2000000);
+        }
 
         return response()->json($transactions);
 
