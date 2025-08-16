@@ -53,8 +53,12 @@ class LoginPasswordRequest extends FormRequest
 
             RateLimiter::clear($this->throttleKey());
 
+            $user = Auth::user()->only(['email', 'name', 'password']);
+
             return [
-                'token' => $token,
+                'user'          => $user,
+                'token'         => $token,
+                'refresh_token' => $token,
             ];
 
         } catch (JWTException $e) {
