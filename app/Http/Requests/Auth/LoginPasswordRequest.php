@@ -53,7 +53,7 @@ class LoginPasswordRequest extends FormRequest
 
             RateLimiter::clear($this->throttleKey());
 
-            $user = Auth::user()->only(['email', 'name', 'password']);
+            $user = Auth::user()->only(['email', 'name', 'profile_photo_url']);
 
             return [
                 'user'          => $user,
