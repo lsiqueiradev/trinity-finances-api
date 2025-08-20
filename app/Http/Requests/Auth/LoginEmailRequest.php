@@ -3,7 +3,6 @@ namespace App\Http\Requests\Auth;
 
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Auth;
@@ -41,29 +40,23 @@ class LoginEmailRequest extends FormRequest
     public function verify(): HttpResponseException
     {
         $this->ensureIsNotRateLimited();
-        try {
-            User::where('email', $this->email)->firstOrFail();
 
-            // if (true) {
-            //     throw new HttpResponseException(
-            //         response()->json([
-            //             'provider' => 'google',
-            //             'message' => 'Faça login com google',
-            //         ], 200)
-            //     );
-            // }
+        $userExists = User::where('email', $this->email)->exists();
 
-            throw new HttpResponseException(
-                response()->json([], 200)
-            );
+        // if (true) {
+        //     throw new HttpResponseException(
+        //         response()->json([
+        //             'provider' => 'google',
+        //             'message' => 'Faça login com google',
+        //         ], 200)
+        //     );
+        // }
 
-        } catch (ModelNotFoundException $e) {
-            throw new HttpResponseException(
-                response()->json([
-                    'message' => 'create',
-                ], 404)
-            );
-        }
+        throw new HttpResponseException(
+            response()->json([
+                'exists' => $userExists,
+            ], 200)
+        );
     }
 
     /**
