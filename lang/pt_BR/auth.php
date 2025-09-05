@@ -13,8 +13,8 @@ return [
     |
      */
 
-    'failed' => 'Você tem permissão para acessar este recurso.',
-    'password' => 'A senha informada está incorreta.',
-    'throttle' => 'Muitas tentativas de login. Tente novamente em :seconds segundos.',
+    'failed'       => 'Essas credenciais são inválidas.',
+    'password'     => 'A senha informada está incorreta.',
+    'throttle'     => 'Muitas tentativas de login. Tente novamente em :seconds segundos.',
     'unauthorized' => 'Você não tem permissão para acessar este recurso.',
 ];
