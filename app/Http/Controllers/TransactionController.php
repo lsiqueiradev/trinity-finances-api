@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Account\AccountCreateUpdateRequest;
 use App\Http\Requests\Transaction\TransactionCreateUpdateRequest;
 use App\Models\Account;
-use App\Models\Category;
+use App\Models\Transaction;
 use App\Services\BalanceService;
 use App\Services\TransactionService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -61,20 +62,41 @@ class TransactionController extends Controller
     }
 
     /**
-     * Retrieve a single account by its ID.
+     * Retrieve a specific transaction by its ID.
      *
-     * @param  string  $categoryId
-     * @return \Illuminate\Http\Response
+     * @param string $transactionId The ID of the transaction to retrieve.
+     * @return JsonResponse The transaction instance if found, otherwise a HTTP 404 response.
+     * @throws ModelNotFoundException If the transaction is not found.
      */
-    public function show(string $categoryId)
+    public function show(Request $request, $transactionId): JsonResponse
     {
-        // try {
-        //     return response()->json(Category::findOrFail($categoryId));
-        // } catch (ModelNotFoundException $e) {
-        //     return response()->json([
-        //         'message' => __('You do not have permission to access this resource.'),
-        //     ], 404);
-        // }
+
+        $transaction = Transaction::where([
+            'user_id' => $request->user()->id,
+            'id'      => $transactionId,
+
+        ])
+            ->with([
+                'category'            => function ($query) {
+                    $query->select(['id', 'name', 'color', 'icon']);
+                },
+                'account'             => function ($query): void {
+                    $query->select(['id', 'description', 'color', 'institution_id']);
+                },
+                'account.institution' => function ($query): void {
+                    $query->select(['id', 'name', 'type']);
+                },
+            ])
+            ->get();
+
+        if (! $transaction) {
+            return response()->json([
+                'message' => __('Transaction not found'),
+            ], 404);
+
+        }
+
+        return response()->json($transaction);
 
     }
 
