@@ -77,15 +77,9 @@ class TransactionController extends Controller
 
         ])
             ->with([
-                'category'            => function ($query) {
-                    $query->select(['id', 'name', 'color', 'icon']);
-                },
-                'account'             => function ($query): void {
-                    $query->select(['id', 'description', 'color', 'institution_id']);
-                },
-                'account.institution' => function ($query): void {
-                    $query->select(['id', 'name', 'type']);
-                },
+                'category:id,name,color,icon',
+                'account:id,description,color,institution_id',
+                'account.institution:id,name,type,logo_path',
             ])
             ->get();
 

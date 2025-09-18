@@ -125,10 +125,10 @@ class TransactionService
                 $dates[] = $date->copy();
 
                 $date = match ($frequency) {
-                    'weekly' => $date->addWeek(),
+                    'weekly'  => $date->addWeek(),
                     'monthly' => $date->setDay(1)->addMonth(),
-                    'yearly' => $date->setDay(1)->addYear(),
-                    default => throw new \InvalidArgumentException('Frequência inválida para recorrências.'),
+                    'yearly'  => $date->setDay(1)->addYear(),
+                    default   => throw new \InvalidArgumentException('Frequência inválida para recorrências.'),
                 };
 
                 if (in_array($frequency, ['monthly', 'yearly'])) {
@@ -142,10 +142,10 @@ class TransactionService
                 $dates[] = $date->copy();
 
                 $date = match ($frequency) {
-                    'weekly' => $date->addWeek(),
+                    'weekly'  => $date->addWeek(),
                     'monthly' => $date->setDay(1)->addMonth(),
-                    'yearly' => $date->setDay(1)->addYear(),
-                    default => throw new \InvalidArgumentException('Frequência inválida para recorrências.'),
+                    'yearly'  => $date->setDay(1)->addYear(),
+                    default   => throw new \InvalidArgumentException('Frequência inválida para recorrências.'),
                 };
 
                 if (in_array($frequency, ['monthly', 'yearly'])) {
@@ -169,45 +169,37 @@ class TransactionService
         $orderBy      = $request->input('order', 'desc');
         $isDescending = $orderBy === 'desc';
 
-        // Busca transações do mês
         $query = Transaction::where([
             'user_id' => $request->user()->id,
         ])
             ->with([
-                'category',
-                'account',
-                'account.institution',
+                'category:id,name,color,icon',
+                'account:id,description,color,institution_id',
+                'account.institution:id,name,type,logo_path',
             ])
             ->whereYear('date', $year)
             ->whereMonth('date', $month)
             ->get();
 
-        // Calcula saldo acumulado do mês anterior
         $previousMonthEnd   = Carbon::create($year, $month, 1)->subMonth()->endOfMonth();
         $accumulatedBalance = app(BalanceService::class)->calculateBalance($previousMonthEnd);
 
-        // Agrupa transações por data
         $transactionsGrouped = $query->groupBy(function ($transaction) {
             return $transaction->date ? Carbon::parse($transaction->date)->format('Y-m-d') : null;
         })->filter(function ($group, $key) {
             return ! is_null($key);
         });
 
-        // Prepara a lista para armazenar os saldos finais por data
         $runningBalance = $accumulatedBalance;
         $balancesByDate = [];
 
-        // Itera sobre as transações agrupadas por data
         foreach ($transactionsGrouped as $date => $dailyTransactions) {
-            // Calcula o saldo acumulado até o dia anterior
             $previousDate = Carbon::parse($date)->subDay()->format('Y-m-d');
 
-            // Se houver saldo do dia anterior, começa com ele
             if (isset($balancesByDate[$previousDate])) {
                 $runningBalance = $balancesByDate[$previousDate];
             }
 
-            // Calcula receitas e despesas do dia atual
             $dailyIncome  = $dailyTransactions->where('type', 'income')->sum('amount');
             $dailyExpense = $dailyTransactions->where('type', 'expense')->sum('amount');
             $runningBalance += ($dailyIncome - $dailyExpense);
@@ -215,7 +207,6 @@ class TransactionService
             $balancesByDate[$date] = round($runningBalance, 2);
 
             $dailyTransactions->prepend((object) [
-                'id'          => Str::uuid(),
                 'amount'      => $balancesByDate[$date],
                 'date'        => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
                 'description' => __('Estimated end of day balance'),
