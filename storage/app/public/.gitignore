@@ -1,2 +1,4 @@
 *
+!banks-images/
+!banks-images/**
 !.gitignore

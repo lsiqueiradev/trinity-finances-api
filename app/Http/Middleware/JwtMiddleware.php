@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenInvalidException;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
@@ -18,10 +19,16 @@ class JwtMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $public = ['api/register', 'api/sessions/password', 'api/sessions/email'];
+        $public = [
+            'api/register',
+            'api/sessions/password',
+            'api/sessions/email',
+        ];
 
         try {
-            if (! in_array($request->path(), $public)) {
+            $path = $request->path();
+
+            if (! collect($public)->contains(fn($p) => Str::is($p, $path))) {
                 JWTAuth::parseToken()->authenticate();
             }
         } catch (TokenExpiredException $e) {
