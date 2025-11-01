@@ -19,7 +19,7 @@ class CategoryArchivedController extends Controller
      */
     public function store(Request $request, string $categoryId)
     {
-        $categoryArchived = $this->categoryService->archive($request, $categoryId);
+        $categoryArchived = $this->categoryService->archiveOrUnarchive($request, $categoryId, 'archive');
 
         if (! $categoryArchived) {
             return response()->json([
@@ -29,6 +29,25 @@ class CategoryArchivedController extends Controller
 
         return response()->json([
             'message' => __('Category archived successfully'),
+        ]);
+
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function destroy(Request $request, string $categoryId)
+    {
+        $categoryArchived = $this->categoryService->archiveOrUnarchive($request, $categoryId, 'unarchive');
+
+        if (! $categoryArchived) {
+            return response()->json([
+                'message' => __('An error occurred while archiving the category'),
+            ], 404);
+        }
+
+        return response()->json([
+            'message' => __('Category unarchived successfully'),
         ]);
 
     }

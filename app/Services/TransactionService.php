@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Models\Recurrence;
 use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -50,7 +51,7 @@ class TransactionService
      * @return Transaction The newly created transaction.
      */
 
-    public function create(Request $request): Transaction | bool
+    public function create(Request $request): Transaction | Recurrence | bool
     {
         if ($request->is_recurring) {
             return $this->createRecurring($request);
@@ -206,11 +207,14 @@ class TransactionService
 
             $balancesByDate[$date] = round($runningBalance, 2);
 
+            $formattedDate = $this->formatDate($date);
+
             $dailyTransactions->prepend((object) [
-                'amount'      => $balancesByDate[$date],
-                'date'        => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
-                'description' => __('Estimated end of day balance'),
-                'created_at'  => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
+                'amount'         => $balancesByDate[$date],
+                'date'           => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
+                'formatted_date' => $formattedDate,
+                'description'    => __('Estimated end of day balance'),
+                'created_at'     => Carbon::parse($date)->endOfDay()->setTimezone('UTC'),
             ]);
         }
 
@@ -240,6 +244,34 @@ class TransactionService
         }
 
         return $finalResult;
+    }
+
+    private function formatDate(String $date): string
+    {
+        $dateUnformatted = Carbon::parse($date)->endOfDay()->setTimezone('UTC');
+
+        $today     = Carbon::today('UTC');
+        $tomorrow  = Carbon::tomorrow('UTC');
+        $yesterday = Carbon::yesterday('UTC');
+        $dateType  = '';
+
+        if ($dateUnformatted
+            ->isSameDay($today)) {
+            $dateType = 'Hoje, ';
+        } elseif ($dateUnformatted
+                ->isSameDay($tomorrow)) {
+            $dateType = 'Amanhã, ';
+        } elseif ($dateUnformatted
+                ->isSameDay($yesterday)) {
+            $dateType = 'Ontem, ';
+        }
+
+        $dateUnformatted
+            ->locale('pt_BR');
+        $dateFormatted = $dateUnformatted->translatedFormat('d \d\e F \d\e Y');
+
+        return $dateType . $dateFormatted;
+
     }
 
 }

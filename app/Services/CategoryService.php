@@ -119,8 +119,10 @@ class CategoryService
             'type'      => $type,
             'parent_id' => null,
         ])
+            ->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived')
             ->with(['subcategories' => function ($query) use ($archived) {
-                $query->where('is_archived', $archived)->orderBy('name');
+                $query->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived'
+                )->where('is_archived', $archived)->orderBy('name');
             }])
             ->where(function ($query) use ($archived) {
                 if ($archived) {
@@ -153,15 +155,15 @@ class CategoryService
         return $this->validateOwnership($categoryId, $request);
     }
 
-    public function archive(Request $request, $categoryId): bool
+    public function archiveOrUnarchive(Request $request, String $categoryId, String $type): JsonResponse | bool
     {
-        $status = filter_var($request->input('status', false), FILTER_VALIDATE_BOOLEAN);
-
-        if ($status === null) {
+        if (! in_array($type, ['archive', 'unarchive'])) {
             return response()->json([
                 'message' => __('An error occurred while archiving the category, incorrect parameters'),
             ], 422);
         }
+
+        $status = $type === 'archive';
 
         $category = $this->validateOwnership($categoryId, $request);
 
