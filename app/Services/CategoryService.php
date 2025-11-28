@@ -119,9 +119,9 @@ class CategoryService
             'type'      => $type,
             'parent_id' => null,
         ])
-            ->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived')
+            ->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at')
             ->with(['subcategories' => function ($query) use ($archived) {
-                $query->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived'
+                $query->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at'
                 )->where('is_archived', $archived)->orderBy('name');
             }])
             ->where(function ($query) use ($archived) {
@@ -152,7 +152,10 @@ class CategoryService
      */
     public function get(Request $request, $categoryId): Category
     {
-        return $this->validateOwnership($categoryId, $request);
+        $category = $this->validateOwnership($categoryId, $request);
+        $category->setVisible(['id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at']);
+
+        return $category;
     }
 
     public function archiveOrUnarchive(Request $request, String $categoryId, String $type): JsonResponse | bool

@@ -44,7 +44,6 @@ class CategoryController extends Controller
      */
     public function show(Request $request, string $categoryId)
     {
-
         $category = $this->categoryService->get($request, $categoryId);
         return response()->json($category);
 

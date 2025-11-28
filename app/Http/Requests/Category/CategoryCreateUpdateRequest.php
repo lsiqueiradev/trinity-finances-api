@@ -7,39 +7,46 @@ use Illuminate\Validation\Rule;
 
 class CategoryCreateUpdateRequest extends FormRequest
 {
-    public function authorize()
+    public function authorize(): bool
     {
         return true;
     }
 
-    public function rules()
+    public function rules(): array
     {
-        $isUpdate = $this->isMethod('put') || $this->isMethod('patch'); // Detecta se é uma atualização
+        $isUpdate            = $this->isMethod('put') || $this->isMethod('patch');
+        $requiredOrSometimes = $isUpdate ? 'sometimes' : 'required';
 
         $rules = [
             'parent_id' => ['nullable', 'exists:categories,id'],
+
             'name'      => [
-                $isUpdate ? 'sometimes' : 'required',
+                $requiredOrSometimes,
                 'string',
                 'max:255',
                 Rule::unique('categories')->where(function ($query) {
-                    return $query->where('type', $this->request->get('type'))
+                    return $query
+                        ->where('type', $this->input('type'))
                         ->where('user_id', Auth::id());
-                })->ignore($this->category),
+                })->ignore($this->route('category') ?? $this->category),
             ],
+
             'color'     => [
-                'nullable',
+                $requiredOrSometimes,
                 'string',
                 'regex:/^#[0-9A-Fa-f]{6}$/',
             ],
+
             'icon'      => [
-                'nullable',
+                $requiredOrSometimes,
                 'string',
             ],
+
             'type'      => [
-                'nullable',
+                $requiredOrSometimes,
                 Rule::in(['expense', 'income']),
             ],
+
             'is_system' => ['boolean'],
             'code'      => ['nullable', 'string', 'max:50'],
         ];
@@ -49,13 +56,31 @@ class CategoryCreateUpdateRequest extends FormRequest
             unset($rules['color'], $rules['icon'], $rules['type']);
         }
 
-        if (! $this->filled('parent_id')) {
-            $rules['color'] = ['required_without:parent_id', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'];
-            $rules['icon']  = ['required_without:parent_id', 'string'];
-            $rules['type']  = ['required_without:parent_id', Rule::in(['expense', 'income'])];
-        }
-
         return $rules;
     }
 
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->isMethod('put') || $this->isMethod('patch')) {
+                $updatableFields = ['name', 'color', 'icon', 'type', 'parent_id'];
+
+                if ($this->filled('parent_id')) {
+                    $updatableFields = ['name', 'parent_id'];
+                }
+
+                $anyPresent = false;
+                foreach ($updatableFields as $field) {
+                    if ($this->has($field)) {
+                        $anyPresent = true;
+                        break;
+                    }
+                }
+
+                if (! $anyPresent) {
+                    $validator->errors()->add('payload', 'Envie ao menos um campo para atualização.');
+                }
+            }
+        });
+    }
 }
