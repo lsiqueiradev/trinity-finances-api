@@ -62,7 +62,7 @@ class CategoryController extends Controller
             ], 403);
         }
 
-        return response()->json($categoryUpdated);
+        return response()->json([], 204);
     }
 
     /**
