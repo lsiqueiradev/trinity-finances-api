@@ -18,10 +18,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
     Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
     Route::get('/categories/{categoryId}', [CategoryController::class, 'show'])->name('categories.show');
-    Route::put('/categories/{categoryId}', [CategoryController::class, 'update'])->name('categories.update');
+    Route::patch('/categories/{categoryId}', [CategoryController::class, 'update'])->name('categories.update');
     Route::delete('/categories/{categoryId}', [CategoryController::class, 'destroy'])->name('categories.destroy');
-    Route::post('/categories/{categoryId}/archive', [CategoryArchivedController::class, 'store'])->name('categories.archive');
-    Route::post('/categories/{categoryId}/unarchive', [CategoryArchivedController::class, 'destroy'])->name('categories.unarchive');
+    Route::patch('/categories/{categoryId}/archive', [CategoryArchivedController::class, 'store'])->name('categories.archive');
+    Route::patch('/categories/{categoryId}/unarchive', [CategoryArchivedController::class, 'destroy'])->name('categories.unarchive');
 
     // accounts
     Route::get('/accounts', [AccountController::class, 'index'])->name('accounts.index');
