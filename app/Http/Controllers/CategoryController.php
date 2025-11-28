@@ -62,9 +62,7 @@ class CategoryController extends Controller
             ], 403);
         }
 
-        return response()->json([
-            'message' => __('Category updated successfully'),
-        ]);
+        return response()->json($categoryUpdated);
     }
 
     /**
