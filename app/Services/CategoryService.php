@@ -107,38 +107,127 @@ class CategoryService
      * @param Request $request The HTTP request object containing user information and query parameters.
      * @return Collection A collection of category instances.
      */
-    public function getAll(Request $request): Collection
+//     public function getAll(Request $request): Collection
+//     {
+//
+//         $type     = (string) $request->input('type', 'expense');
+//         $archived = filter_var($request->input('archived', false), FILTER_VALIDATE_BOOLEAN);
+//
+//         $categories = Category::where([
+//             'user_id'   => $request->user()->id,
+//             'is_system' => false,
+//             'type'      => $type,
+//             'parent_id' => null,
+//         ])
+//             ->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at')
+//             ->with(['subcategories' => function ($query) use ($archived) {
+//                 $query->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at'
+//                 )->where('is_archived', $archived)->orderBy('name');
+//             }])
+//             ->where(function ($query) use ($archived) {
+//                 if ($archived) {
+//                     $query->where('is_archived', true)
+//                         ->orWhereHas('subcategories', function ($subQuery) {
+//                             $subQuery->where('is_archived', true);
+//                         });
+//                 } else {
+//                     $query->where('is_archived', false);
+//                 }
+//             })
+//             ->orderBy('name')
+//             ->get();
+//
+//         return $categories;
+//
+//     }
+
+    public function getAll(Request $request): \Illuminate\Support\Collection
     {
+        $type = (string) $request->input('type', 'expense');
 
-        $type     = (string) $request->input('type', 'expense');
-        $archived = filter_var($request->input('archived', false), FILTER_VALIDATE_BOOLEAN);
+        // archived: null quando não enviado; bool quando enviado
+        $archivedInput = $request->input('archived', null);
+        $archived      = null;
+        if ($archivedInput !== null && $archivedInput !== '') {
+            $archived = filter_var($archivedInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
 
-        $categories = Category::where([
+        $selectFields = [
+            'id', 'parent_id', 'name', 'color', 'icon', 'type',
+            'is_system', 'is_archived', 'created_at', 'updated_at',
+        ];
+
+        $baseQuery = Category::where([
             'user_id'   => $request->user()->id,
             'is_system' => false,
             'type'      => $type,
             'parent_id' => null,
-        ])
-            ->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at')
-            ->with(['subcategories' => function ($query) use ($archived) {
-                $query->select('id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at'
-                )->where('is_archived', $archived)->orderBy('name');
+        ])->select($selectFields);
+
+        $withSubcategories = function ($query, ?bool $archivedFilter) use ($selectFields) {
+            $query->select($selectFields)->orderBy('name');
+            if ($archivedFilter !== null) {
+                $query->where('is_archived', $archivedFilter);
+            }
+        };
+
+        // Caso archived explicitamente enviado → retorno simples de categorias (sem títulos),
+        // mas convertido para Support\Collection para manter a assinatura uniforme.
+        if ($archived !== null) {
+            $categories = $baseQuery
+                ->with(['subcategories' => function ($query) use ($archived, $withSubcategories) {
+                    $withSubcategories($query, $archived);
+                }])
+                ->where(function ($query) use ($archived) {
+                    if ($archived) {
+                        $query->where('is_archived', true)
+                            ->orWhereHas('subcategories', function ($subQuery) {
+                                $subQuery->where('is_archived', true);
+                            });
+                    } else {
+                        $query->where('is_archived', false);
+                    }
+                })
+                ->orderBy('name')
+                ->get();
+
+            // Converte para Support\Collection para casar com a assinatura de retorno
+            return collect($categories->all());
+        }
+
+        // Caso archived não enviado → montar lista com títulos
+        $activeCategories = (clone $baseQuery)
+            ->with(['subcategories' => function ($query) use ($withSubcategories) {
+                $withSubcategories($query, false);
             }])
-            ->where(function ($query) use ($archived) {
-                if ($archived) {
-                    $query->where('is_archived', true)
-                        ->orWhereHas('subcategories', function ($subQuery) {
-                            $subQuery->where('is_archived', true);
-                        });
-                } else {
-                    $query->where('is_archived', false);
-                }
-            })
+            ->where('is_archived', false)
             ->orderBy('name')
             ->get();
 
-        return $categories;
+        $archivedCategories = (clone $baseQuery)
+            ->with(['subcategories' => function ($query) use ($withSubcategories) {
+                $withSubcategories($query, true);
+            }])
+            ->where('is_archived', true)
+            ->orderBy('name')
+            ->get();
 
+        $result = collect();
+
+        if ($activeCategories->isNotEmpty()) {
+            foreach ($activeCategories as $cat) {
+                $result->push($cat);
+            }
+        }
+
+        if ($archivedCategories->isNotEmpty()) {
+            $result->push(['title' => 'Arquivadas']);
+            foreach ($archivedCategories as $cat) {
+                $result->push($cat);
+            }
+        }
+
+        return $result;
     }
 
     /**
