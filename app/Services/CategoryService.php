@@ -3,10 +3,12 @@ namespace App\Services;
 
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection as BaseCollection;
 
 class CategoryService
 {
@@ -112,7 +114,6 @@ class CategoryService
     {
         $type = (string) $request->input('type', 'expense');
 
-        // archived: null quando não enviado; bool quando enviado
         $archivedInput = $request->input('archived', null);
         $archived      = null;
         if ($archivedInput !== null && $archivedInput !== '') {
@@ -131,20 +132,13 @@ class CategoryService
             'parent_id' => null,
         ])->select($selectFields);
 
-        // Helper de subcategorias
         $withSubcategories = function ($query, ?bool $archivedFilter) use ($selectFields) {
             $query->select($selectFields)->orderBy('name');
-
             if ($archivedFilter !== null) {
                 $query->where('is_archived', $archivedFilter);
             }
         };
 
-        /**
-         * BLOCOS
-         */
-
-        // 1) Categorias ativas com APENAS subcategorias ativas
         $activeCategories = (clone $baseQuery)
             ->with(['subcategories' => function ($query) use ($withSubcategories) {
                 $withSubcategories($query, false);
@@ -153,9 +147,6 @@ class CategoryService
             ->orderBy('name')
             ->get();
 
-        // 2) Bloco arquivado:
-        //    - categorias arquivadas
-        //    - categorias ativas com subcategorias arquivadas
         $archivedBlockCategories = (clone $baseQuery)
             ->with(['subcategories' => function ($query) use ($withSubcategories) {
                 $withSubcategories($query, true);
@@ -170,66 +161,41 @@ class CategoryService
             ->get();
 
         /**
-         * Se archived FOI enviado
+         * Se archived FOI enviado: retorna só o bloco correspondente (flat)
          */
         if ($archived !== null) {
+
+            $final = collect();
+
             if ($archived === false) {
-                // Apenas categorias ativas + subcats ativas
-                return collect($activeCategories->all());
-            }
+                foreach ($activeCategories as $cat) {
 
-            // archived === true → apenas bloco arquivado
-            return collect(
-                $archivedBlockCategories->map(function ($cat) {
-                    if ($cat->is_archived) {
-                        return $cat;
+                    if ($cat instanceof Model) {
+                        $cat->makeHidden('subcategories');
                     }
-
-                    // Categoria ativa com subcats arquivadas → wrapper virtual
-                    $archivedSubs = $cat->subcategories->filter(fn($s) => $s->is_archived);
-
-                    return [
-                        'id' => "archived-parent-{$cat->id}", // id virtual
-                        'name'          => $cat->name,
-                        'icon'          => $cat->icon,
-                        'color'         => $cat->color,
-                        'is_archived'   => true,
-                        'is_system'     => $cat->is_system,
-                        'type'          => $cat->type,
-                        'parent_id'     => null,
-                        'subcategories' => $archivedSubs->values(),
-                    ];
-                })
-            );
-        }
-
-        /**
-         * archived NÃO enviado → lista completa:
-         * - ativas
-         * - título Arquivadas
-         * - bloco arquivadas
-         */
-        $result = collect();
-
-        // Ativas
-        foreach ($activeCategories as $cat) {
-            $result->push($cat);
-        }
-
-        if ($archivedBlockCategories->isNotEmpty()) {
-            $result->push(['title' => 'Arquivadas']);
+                    $final = $final->merge($this->flattenCategory($cat));
+                }
+                return $final->values();
+            }
 
             foreach ($archivedBlockCategories as $cat) {
 
                 if ($cat->is_archived) {
-                    $result->push($cat);
+
+                    if ($cat instanceof Model) {
+                        $cat->makeHidden('subcategories');
+                    }
+                    $final = $final->merge($this->flattenCategory($cat));
                     continue;
                 }
 
-                // Categoria ativa com subcats arquivadas → wrapper virtual
-                $archivedSubs = $cat->subcategories->filter(fn($s) => $s->is_archived);
+                $archivedSubs = collect($cat->subcategories ?? [])->filter(fn($s) => data_get($s, 'is_archived') || ($s instanceof Model && $s->is_archived));
 
-                $result->push([
+                if ($archivedSubs->isEmpty()) {
+                    continue;
+                }
+
+                $virtual = [
                     'id' => "archived-parent-{$cat->id}",
                     'synthetic_id'  => true,
                     'name'          => $cat->name,
@@ -239,12 +205,67 @@ class CategoryService
                     'is_system'     => $cat->is_system,
                     'type'          => $cat->type,
                     'parent_id'     => null,
-                    'subcategories' => $archivedSubs->values(),
-                ]);
+                    'subcategories' => $archivedSubs->values()->all(),
+                ];
+
+                $final = $final->merge($this->flattenCategory($virtual));
+            }
+
+            return $final->values();
+        }
+
+        /**
+         * archived NÃO enviado → lista completa:
+         * - ativas (flat)
+         * - título Arquivadas (se houver)
+         * - bloco arquivado (flat)
+         */
+        $result = collect();
+
+        foreach ($activeCategories as $cat) {
+            if ($cat instanceof Model) {
+                $cat->makeHidden('subcategories');
+            }
+            $result = $result->merge($this->flattenCategory($cat));
+        }
+
+        if ($archivedBlockCategories->isNotEmpty()) {
+            $result->push(['title' => 'Arquivadas']);
+
+            foreach ($archivedBlockCategories as $cat) {
+
+                if ($cat->is_archived) {
+                    if ($cat instanceof Model) {
+                        $cat->makeHidden('subcategories');
+                    }
+                    $result = $result->merge($this->flattenCategory($cat));
+                    continue;
+                }
+
+                $archivedSubs = collect($cat->subcategories ?? [])->filter(fn($s) => data_get($s, 'is_archived') || ($s instanceof Model && $s->is_archived));
+
+                if ($archivedSubs->isEmpty()) {
+                    continue;
+                }
+
+                $virtual = [
+                    'id' => "archived-parent-{$cat->id}",
+                    'synthetic_id'  => true,
+                    'name'          => $cat->name,
+                    'icon'          => $cat->icon,
+                    'color'         => $cat->color,
+                    'is_archived'   => true,
+                    'is_system'     => $cat->is_system,
+                    'type'          => $cat->type,
+                    'parent_id'     => null,
+                    'subcategories' => $archivedSubs->values()->all(),
+                ];
+
+                $result = $result->merge($this->flattenCategory($virtual));
             }
         }
 
-        return $result;
+        return $result->values();
     }
 
     /**
@@ -287,4 +308,33 @@ class CategoryService
 
         return $category->update(['is_archived' => $status]);
     }
+
+    private function flattenCategory($cat): BaseCollection
+    {
+        $flat = collect();
+
+        if ($cat instanceof Model) {
+            $parentArr = collect($cat->toArray())->except('subcategories');
+            $subs      = $cat->relationLoaded('subcategories') ? $cat->subcategories->toArray() : [];
+        } else {
+            $parentArr = collect($cat)->except('subcategories');
+            $subs      = isset($cat['subcategories']) ? $cat['subcategories'] : [];
+        }
+
+        $flat->push($parentArr->all());
+
+        if (! empty($subs)) {
+            foreach ($subs as $sub) {
+
+                if ($sub instanceof Model) {
+                    $flat->push(collect($sub->toArray())->except('subcategories')->all());
+                } else {
+                    $flat->push(collect($sub)->except('subcategories')->all());
+                }
+            }
+        }
+
+        return $flat;
+    }
+
 }

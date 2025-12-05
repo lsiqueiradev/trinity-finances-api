@@ -5,6 +5,7 @@ use Closure;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenInvalidException;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
@@ -32,11 +33,13 @@ class JwtMiddleware
                 JWTAuth::parseToken()->authenticate();
             }
         } catch (TokenExpiredException $e) {
-            return response()->json(['message' => 'Token Expirado'], 401);
+            return response()->json(['message' => 'TOKEN_EXPIRED'], 401);
         } catch (TokenInvalidException $e) {
-            return response()->json(['message' => 'Token inválido'], 401);
+            return response()->json(['message' => 'TOKEN_INVALID'], 401);
+        } catch (JWTException $e) {
+            return response()->json(['message' => 'TOKEN_MISSING'], 401);
         } catch (Exception $e) {
-            return response()->json(['message' => 'Token não encontrado'], 401);
+            return response()->json(['message' => 'TOKEN_ERROR'], 401);
         }
 
         return $next($request);
