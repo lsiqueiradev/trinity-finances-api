@@ -76,7 +76,17 @@ class CategoryService
      */
     public function update(Request $request, string $categoryId): bool
     {
-        return $this->validateOwnership($categoryId, $request)->update($request->all());
+        $category = $this->validateOwnership($categoryId, $request);
+
+        if ($request->parent_id) {
+            $parentCategory = Category::find($request->parent_id);
+            $request->merge([
+                'color' => $parentCategory->color,
+                'icon'  => $parentCategory->icon,
+            ]);
+        }
+
+        return $category->update($request->all());
     }
 
     /**
@@ -280,7 +290,16 @@ class CategoryService
     public function get(Request $request, $categoryId): Category
     {
         $category = $this->validateOwnership($categoryId, $request);
-        $category->setVisible(['id', 'parent_id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'created_at', 'updated_at']);
+
+        $category->load('parent');
+
+        $category->setVisible(['id', 'name', 'color', 'icon', 'type', 'is_system', 'is_archived', 'parent', 'created_at', 'updated_at']);
+
+        if ($category->parent) {
+            $category->parent->setVisible([
+                'id', 'name', 'color', 'icon',
+            ]);
+        }
 
         return $category;
     }
