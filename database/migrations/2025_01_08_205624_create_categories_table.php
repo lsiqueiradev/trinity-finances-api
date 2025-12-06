@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('color');
             $table->string('icon');
             $table->enum('type', ['expense', 'income']);
-            $table->unique(['name', 'type', 'user_id']);
+            $table->unique(['name', 'type', 'user_id', 'parent_id']);
             $table->string('code')->nullable();
             $table->boolean('is_system')->default(false);
             $table->boolean('is_archived')->default(false);
