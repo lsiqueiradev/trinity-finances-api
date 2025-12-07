@@ -207,16 +207,24 @@ class CategoryService
                     continue;
                 }
 
+                $archivedSubs = collect($cat->subcategories ?? [])->filter(fn($s) => data_get($s, 'is_archived') || ($s instanceof Model && $s->is_archived));
+
+                if ($archivedSubs->isEmpty()) {
+                    continue;
+                }
+
                 $virtual = [
                     'id' => "archived-parent-{$cat->id}",
-                    'synthetic_id' => true,
-                    'name'         => $cat->name,
-                    'icon'         => $cat->icon,
-                    'color'        => $cat->color,
-                    'is_archived'  => true,
-                    'is_system'    => $cat->is_system,
-                    'type'         => $cat->type,
-                    'parent_id'    => null,
+                    'synthetic_id'  => true,
+                    'name'          => $cat->name,
+                    'icon'          => $cat->icon,
+                    'color'         => $cat->color,
+                    'is_archived'   => true,
+                    'is_system'     => $cat->is_system,
+                    'type'          => $cat->type,
+                    'parent_id'     => null,
+                    'subcategories' => $archivedSubs->values()->all(),
+
                 ];
 
                 $final = $final->merge($this->flattenCategory($virtual));
@@ -252,15 +260,22 @@ class CategoryService
                     continue;
                 }
 
+                $archivedSubs = collect($cat->subcategories ?? [])->filter(fn($s) => data_get($s, 'is_archived') || ($s instanceof Model && $s->is_archived));
+
+                if ($archivedSubs->isEmpty()) {
+                    continue;
+                }
+
                 $virtual = [
                     'id' => "archived-parent-{$cat->id}",
-                    'synthetic_id' => true,
-                    'name'         => $cat->name,
-                    'icon'         => $cat->icon,
-                    'color'        => $cat->color,
-                    'is_archived'  => true,
-                    'is_system'    => $cat->is_system,
-                    'type'         => $cat->type,
+                    'synthetic_id'  => true,
+                    'name'          => $cat->name,
+                    'icon'          => $cat->icon,
+                    'color'         => $cat->color,
+                    'is_archived'   => true,
+                    'is_system'     => $cat->is_system,
+                    'type'          => $cat->type,
+                    'subcategories' => $archivedSubs->values()->all(),
                 ];
 
                 $result = $result->merge($this->flattenCategory($virtual));
@@ -318,6 +333,7 @@ class CategoryService
         }
 
         return $category->update(['is_archived' => $status]);
+
     }
 
     private function flattenCategory($cat): BaseCollection
