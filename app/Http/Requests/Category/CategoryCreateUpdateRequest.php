@@ -21,7 +21,9 @@ class CategoryCreateUpdateRequest extends FormRequest
         $categoryId    = $this->route('categoryId');
         $category      = Category::find($categoryId);
         $currentType   = $this->input('type', $category?->type);
-        $currentParent = $this->input('parent_id', $category?->parent_id);
+        $currentParent = $this->filled('parent_id')
+            ? $this->input('parent_id')
+            : $category?->parent_id;
 
         $rules = [
             'parent_id' => ['nullable', 'exists:categories,id'],
@@ -32,8 +34,7 @@ class CategoryCreateUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique('categories')->where(function ($query) use ($currentType, $currentParent) {
                     return $query
-                        ->where('type', $currentType
-                        )
+                        ->where('type', $currentType)
                         ->where('parent_id', $currentParent)
                         ->where('user_id', Auth::id());
                 })->ignore($categoryId),
@@ -60,7 +61,8 @@ class CategoryCreateUpdateRequest extends FormRequest
         ];
 
         if ($this->filled('parent_id')) {
-            $rules['name'] = [$isUpdate ? 'sometimes' : 'required', 'string', 'max:255'];
+            $rules['name'][0] = $isUpdate ? 'sometimes' : 'required';
+
             unset($rules['color'], $rules['icon'], $rules['type']);
         }
 
@@ -91,21 +93,16 @@ class CategoryCreateUpdateRequest extends FormRequest
                 }
             }
 
-            // Se já existe erro de unique
             if ($validator->errors()->has('name')) {
 
-                // Limpa a mensagem padrão
                 $validator->errors()->forget('name');
 
-                // Carrega a categoria original
                 $categoryId = $this->route('categoryId');
                 $category   = Category::find($categoryId);
 
-                // Agora você tem type e parent_id mesmo que NÃO venham no request
                 $isSubcategory = ! is_null($category?->parent_id);
                 $typeName      = $category?->type === 'income' ? 'receita' : 'despesa';
 
-                // Suas duas mensagens
                 $msg1 = $isSubcategory
                     ? 'Essa categoria possui uma subcategoria com o mesmo nome.'
                     : "Já existe um tipo de {$typeName} com esse nome.";
@@ -113,31 +110,6 @@ class CategoryCreateUpdateRequest extends FormRequest
                 $validator->errors()->add('name', $msg1);
             }
 
-//             if ($this->filled('name')) {
-//                 $exists = Category::where('name', $this->input('name'))
-//                     ->where('user_id', Auth::id())
-//                     ->where('parent_id', $this->input('parent_id'))
-//                     ->when($this->filled('type'), fn($q) => $q->where('type', $this->input('type')))
-//                     ->where(function ($q) {
-//                         if ($this->route('category') ?? $this->category) {
-//                             $q->where('id', '!=', $this->route('category') ?? $this->category);
-//                         }
-//                     })
-//                     ->exists();
-//
-//                 if ($exists) {
-//                     $category      = Category::find($this->categoryId);
-//                     $isSubcategory = $this->filled('parent_id');
-//                     $typeName      = $category->type === 'income' ? 'receita' : 'despesa';
-//
-//                     $message = $isSubcategory
-//                         ? 'Essa categoria possui uma subcategoria com o mesmo nome.'
-//                         : "Já existe um tipo de {$typeName} com esse nome.";
-//
-//                     $validator->errors()->add('name', $message);
-//                 }
-//
-//             }
         });
     }
 }
