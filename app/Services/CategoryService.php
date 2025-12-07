@@ -134,6 +134,9 @@ class CategoryService
             'id', 'parent_id', 'name', 'color', 'icon', 'type',
             'is_system', 'is_archived', 'created_at', 'updated_at',
         ];
+        $selectFieldsParent = [
+            'id', 'name', 'color', 'icon',
+        ];
 
         $baseQuery = Category::where([
             'user_id'   => $request->user()->id,
@@ -142,8 +145,11 @@ class CategoryService
             'parent_id' => null,
         ])->select($selectFields);
 
-        $withSubcategories = function ($query, ?bool $archivedFilter) use ($selectFields) {
-            $query->select($selectFields)->orderBy('name');
+        $withSubcategories = function ($query, ?bool $archivedFilter) use ($selectFields, $selectFieldsParent
+        ) {
+            $query->select($selectFields)->with(['parent' => function ($q) use ($selectFieldsParent) {
+                $q->select($selectFieldsParent);
+            }])->orderBy('name');
             if ($archivedFilter !== null) {
                 $query->where('is_archived', $archivedFilter);
             }
@@ -181,7 +187,8 @@ class CategoryService
                 foreach ($activeCategories as $cat) {
 
                     if ($cat instanceof Model) {
-                        $cat->makeHidden('subcategories');
+
+                        $cat->makeHidden(['subcategories']);
                     }
                     $final = $final->merge($this->flattenCategory($cat));
                 }
@@ -193,29 +200,23 @@ class CategoryService
                 if ($cat->is_archived) {
 
                     if ($cat instanceof Model) {
-                        $cat->makeHidden('subcategories');
+
+                        $cat->makeHidden(['subcategories']);
                     }
                     $final = $final->merge($this->flattenCategory($cat));
                     continue;
                 }
 
-                $archivedSubs = collect($cat->subcategories ?? [])->filter(fn($s) => data_get($s, 'is_archived') || ($s instanceof Model && $s->is_archived));
-
-                if ($archivedSubs->isEmpty()) {
-                    continue;
-                }
-
                 $virtual = [
                     'id' => "archived-parent-{$cat->id}",
-                    'synthetic_id'  => true,
-                    'name'          => $cat->name,
-                    'icon'          => $cat->icon,
-                    'color'         => $cat->color,
-                    'is_archived'   => true,
-                    'is_system'     => $cat->is_system,
-                    'type'          => $cat->type,
-                    'parent_id'     => null,
-                    'subcategories' => $archivedSubs->values()->all(),
+                    'synthetic_id' => true,
+                    'name'         => $cat->name,
+                    'icon'         => $cat->icon,
+                    'color'        => $cat->color,
+                    'is_archived'  => true,
+                    'is_system'    => $cat->is_system,
+                    'type'         => $cat->type,
+                    'parent_id'    => null,
                 ];
 
                 $final = $final->merge($this->flattenCategory($virtual));
@@ -234,7 +235,7 @@ class CategoryService
 
         foreach ($activeCategories as $cat) {
             if ($cat instanceof Model) {
-                $cat->makeHidden('subcategories');
+                $cat->makeHidden(['subcategories']);
             }
             $result = $result->merge($this->flattenCategory($cat));
         }
@@ -243,32 +244,23 @@ class CategoryService
             $result->push(['title' => 'Arquivadas']);
 
             foreach ($archivedBlockCategories as $cat) {
-
                 if ($cat->is_archived) {
                     if ($cat instanceof Model) {
-                        $cat->makeHidden('subcategories');
+                        $cat->makeHidden(['subcategories']);
                     }
                     $result = $result->merge($this->flattenCategory($cat));
                     continue;
                 }
 
-                $archivedSubs = collect($cat->subcategories ?? [])->filter(fn($s) => data_get($s, 'is_archived') || ($s instanceof Model && $s->is_archived));
-
-                if ($archivedSubs->isEmpty()) {
-                    continue;
-                }
-
                 $virtual = [
                     'id' => "archived-parent-{$cat->id}",
-                    'synthetic_id'  => true,
-                    'name'          => $cat->name,
-                    'icon'          => $cat->icon,
-                    'color'         => $cat->color,
-                    'is_archived'   => true,
-                    'is_system'     => $cat->is_system,
-                    'type'          => $cat->type,
-                    'parent_id'     => null,
-                    'subcategories' => $archivedSubs->values()->all(),
+                    'synthetic_id' => true,
+                    'name'         => $cat->name,
+                    'icon'         => $cat->icon,
+                    'color'        => $cat->color,
+                    'is_archived'  => true,
+                    'is_system'    => $cat->is_system,
+                    'type'         => $cat->type,
                 ];
 
                 $result = $result->merge($this->flattenCategory($virtual));
