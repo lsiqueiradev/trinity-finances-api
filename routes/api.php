@@ -3,16 +3,26 @@
 use App\Http\Controllers\AccountArchivedController;
 use App\Http\Controllers\AccountBalanceController;
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AvatarController;
 use App\Http\Controllers\BalanceController;
 use App\Http\Controllers\CategoryArchivedController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\InstitutionController;
 use App\Http\Controllers\ObjectiveController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
+
+    // profile
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    // avatar
+    Route::post('/profile/avatar', [AvatarController::class, 'store'])->name('profile.avatar.store');
+    Route::delete('/profile/avatar', [AvatarController::class, 'destroy'])->name('profile.avatar.destroy');
 
     // categories
     Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
